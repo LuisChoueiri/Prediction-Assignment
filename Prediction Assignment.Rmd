@@ -1,0 +1,90 @@
+---
+title: "Prediction Assignment"
+author: "Luis Felipe Choueiri"
+date: "December 10, 2016"
+output: html_document
+---
+
+## Practical Machine Learning - Prediction Assignment
+
+The goal of this project is to develop and justify a prediction model of how an exercise was performed based on the 
+physical information from various accelerometers worn by participants. 
+
+#Data access and library calls
+
+We begin by reading in the available training data from the Groupware Human Activity Recognition project.
+Following this Groupware's documentation informs us there were 5 different classification in which a Dumbbell Bicep Curl
+was performed. 
+
+Furthermore, we take the training set and separate it into a sub training set by using k-fold cross validation.
+
+```{r setup and data}
+
+library(dplyr)
+library(caret)
+setwd("D:/Desktop/Programming/R/PML Prediction Assignment")
+raw.training <- read.csv("pml-training.csv")
+raw.test <- read.csv("pml-testing.csv")
+
+```
+
+## Prediction Methodology
+
+Based on the information given about the small number of classes and the information available to test on we would
+remove all NA variables from the training set that will not be available to predict on. Then we will develop a
+predictive model to determine method of exercise based only on the position of the various sensors, represented in the
+data set by the roll, pitch and yaw variables.
+
+The model would be created using k-folding forecasts with a k of 10, repeated 3 times across the training data set
+as a method of cross validation. The model form I selected was a Random Forest model as the interpretability is valuable
+when dealing with physical parameters.
+
+```{r Model creation, echo=FALSE}
+
+test <- raw.test[, !(is.na(raw.test[1,]))]
+columns <- colnames(test)
+
+colnums <- which(names(raw.test) %in% columns)
+
+training <- raw.training[,colnums]
+
+training <- training[,-1]
+test <- test[,-1]
+
+training <- training[,c(59,7:9,20:22,33:35,46:48)]
+test <- test[,c(59,7:9,20:22,33:35,46:48)]
+
+train_control <- trainControl(method="repeatedcv", number=10, repeats=3)
+
+modelFit <- train(classe ~ . , "rf", data=training ,trControl=train_control)
+
+```
+
+#Final Model Results
+
+We then call the model and see that the primary predictor selected was the 7th metric, and the accuracy values returned
+were on the scale of 99%. Now, we understand that this error rate if far to low when dealing with test data, 
+particularly because of the posibility of confounding edge positions of the sensors. This leads me to expect an error 
+rate closer to 3% overall, instead of the 1% we have calculated. We select this error based on the number of available 
+predictors and the size of the data set.
+
+#Predicting on the test sample
+
+We then predict on the test data set using our newly created model and then join the results back to the test data set 
+along with problem ID.
+
+
+```{r Prediction Results, echo=TRUE}
+
+test <- test[,-1]
+
+results <- predict(modelFit, test)
+
+test.results  <- data.frame(c(1:20),results,test)
+
+colnames(test.results)[1] <- "problem_id"
+
+test.results
+
+```
+
